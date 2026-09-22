@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de reservas</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { box-sizing: border-box; }
+        
+        :root {
+            --bg: #ffffff;
+            --card: #f7f7f5;
+            --border: #e3e2dd;
+            --border-strong: #c9c7bf;
+            --text: #1a1a18;
+            --text-2: #5f5e58;
+            --text-muted: #8b8a83;
+            --accent: #185fa5;
+            --accent-bg: #e6f1fb;
+            --danger: #a32d2d;
+            --danger-bg: #fcebeb;
+            --success: #3b6d11;
+            --success-bg: #eaf3de;
+            --warning: #854f0b;
+            --warning-bg: #faeeda;
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #181816;
+                --card: #221f1c;
+                --border: #3a372f;
+                --border-strong: #4d493f;
+                --text: #f1efe8;
+                --text-2: #b4b2a9;
+                --text-muted: #888780;
+                --accent: #85b7eb;
+                --accent-bg: #0c447c;
+                --danger: #f09595;
+                --danger-bg: #501313;
+                --success: #97c459;
+                --success-bg: #173404;
+                --warning: #fac775;
+                --warning-bg: #412402;
+            }
+        }
+        
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .wrap {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 24px 16px 60px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 32px;
+            font-weight: 600;
+            margin: 0 0 6px;
+            color: var(--text);
+        }
+        
+        .sub {
+            color: var(--text-2);
+            font-size: 14px;
+            margin: 0 0 20px;
+        }
+        
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 25px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px 18px;
+        }
+        
+        .card .lbl {
+            font-size: 12px;
+            color: var(--text-2);
+            margin-bottom: 8px;
+            text-transform: capitalize;
+        }
+        
+        .card .val {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .controls input[type=text],
+        .controls select {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
+            min-width: 200px;
+        }
+        
+        .spacer { flex: 1; }
+        
+        button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #144a88;
+        }
+        
+        button.secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border-strong);
+        }
+        
+        button.secondary:hover {
+            background: var(--card);
+        }
+        
+        button.mini {
+            padding: 5px 9px;
+            font-size: 11px;
+        }
+        
+        button.danger {
+            background: var(--danger);
+        }
+        
+        button.danger:hover {
+            background: #8a2424;
+        }
+        
+        .tablewrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            min-width: 980px;
+        }
+        
+        th {
+            text-align: left;
+            background: var(--card);
+            color: var(--text-2);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+        }
+        
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        tr:hover {
+            background: var(--card);
+        }
+        
+        .num {
+            text-align: right;
+        }
+        
+        .pos { color: var(--success); }
+        .neg { color: var(--danger); }
+        
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        .badge.b-consulta { background: var(--warning-bg); color: var(--warning); }
+        .badge.b-reservado { background: var(--accent-bg); color: var(--accent); }
+        .badge.b-seña { background: var(--accent-bg); color: var(--accent); }
+        .badge.b-parcial { background: var(--warning-bg); color: var(--warning); }
+        .badge.b-pagado { background: var(--success-bg); color: var(--success); }
+        .badge.b-viajado { background: var(--success-bg); color: var(--success); }
+        .badge.b-cancelado { background: var(--danger-bg); color: var(--danger); }
+        
+        .rowbtns {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .empty {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 40px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--bg);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 650px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 0;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .form-group label {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-2);
+        }
+        
+        .form-group input,
+        .form-group select {
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--border-strong);
+            border-radius: 6px;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .alert {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--success-bg);
+            color: var(--success);
+            padding: 14px 20px;
+            border-radius: 8px;
+            display: none;
+            z-index: 1001;
+            font-size: 13px;
+        }
+        
+        .alert.show {
+            display: block;
+        }
+        
+        .alert-danger {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+        
+        .form-section {
+            margin: 20px 0;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .form-section h3 {
+            font-size: 13px;
+            margin: 0 0 15px;
+            color: var(--text-2);
+        }
+        
+        .pagos-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        #login {
+            position: fixed; inset: 0; background: var(--bg);
+            display: flex; align-items: center; justify-content: center; z-index: 2000;
+        }
+        #login .box {
+            width: 100%; max-width: 340px; padding: 30px;
+            border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+        }
+        #login h2 { margin: 0 0 6px; font-size: 22px; text-align: center; }
+        #login p { margin: 0 0 20px; color: var(--text-2); font-size: 13px; text-align: center; }
+        #login input {
+            width: 100%; margin-bottom: 12px; padding: 10px 12px; font-size: 14px;
+            border: 1px solid var(--border-strong); border-radius: 8px;
+            background: var(--bg); color: var(--text);
+        }
+        #login button { width: 100%; padding: 11px; }
+        #loginError { color: var(--danger); font-size: 13px; min-height: 18px; margin-bottom: 8px; text-align: center; }
+        .topbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+    <div id="login">
+        <div class="box">
+            <h2>Control de Reservas</h2>
+            <p>Ingresá con el usuario de la agencia</p>
+            <input type="email" id="loginEmail" placeholder="Email" autocomplete="username">
+            <input type="password" id="loginPass" placeholder="Contraseña" autocomplete="current-password">
+            <div id="loginError"></div>
+            <button id="loginBtn" onclick="ingresar()">Ingresar</button>
+        </div>
+    </div>
+    <div class="wrap">
+        <div class="topbar"><button class="secondary mini" onclick="salir()">Cerrar sesión</button></div>
+        <div class="header">
+            <h1>Control de Reservas</h1>
+            <p class="sub">Gestor de reservas en tiempo real ✨</p>
+        </div>
+        
+        <div class="cards">
+            <div class="card">
+                <div class="lbl">Reservas activas</div>
+                <div class="val" id="estatReservas">0</div>
+            </div>
+            <div class="card">
+                <div class="lbl">Por cobrar</div>
+                <div class="val" id="estatPorCobrar">$0</div>
+            </div>
+            <div class="card">
+                <div class="lbl">Margen total</div>
+                <div class="val" id="estatGanancia">$0</div>
+            </div>
+            <div class="card">
+                <div class="lbl">Vencimientos próx. 30 días</div>
+                <div class="val" id="estatProximas">0</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <input type="text" id="filtroP" placeholder="Buscar por File, Pasajero o Destino...">
+            <select id="filtroEstado">
+                <option value="">Todos los estados</option>
+                <option value="Consulta">Consulta</option>
+                <option value="Reservado">Reservado</option>
+                <option value="Seña">Seña</option>
+                <option value="Parcial">Parcial</option>
+                <option value="Pagado">Pagado</option>
+                <option value="Viajado">Viajado</option>
+                <option value="Cancelado">Cancelado</option>
+            </select>
+            <div class="spacer"></div>
+            <button onclick="abrirModal()">+ Nueva Reserva</button>
+        </div>
+        
+        <div class="tablewrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Pasajero</th>
+                        <th>Destino</th>
+                        <th>Salida</th>
+                        <th>Regreso</th>
+                        <th>Costo Neto</th>
+                        <th>Precio Venta</th>
+                        <th>Margen</th>
+                        <th>Estado</th>
+                        <th>Pagado</th>
+                        <th>Saldo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyReservas">
+                    <tr><td colspan="12" class="empty">Cargando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="controls" style="justify-content: center; margin-top: 20px;">
+            <button class="secondary mini" onclick="exportarJSON()">📥 Exportar JSON</button>
+            <button class="secondary mini" onclick="descargarCSV()">📊 Descargar CSV</button>
+        </div>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modalTitle">Nueva Reserva</span>
+                <button class="modal-close" onclick="cerrarModal()">×</button>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Número de File *</label>
+                    <input type="text" id="modalNumeroFile" placeholder="RES-001" required>
+                </div>
+                <div class="form-group">
+                    <label>Pasajero *</label>
+                    <input type="text" id="modalPasajero" required>
+                </div>
+                <div class="form-group">
+                    <label>Destino *</label>
+                    <input type="text" id="modalDestino" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha Salida *</label>
+                    <input type="date" id="modalFechaSalida" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha Regreso *</label>
+                    <input type="date" id="modalFechaRegreso" required>
+                </div>
+                <div class="form-group">
+                    <label>Costo Neto *</label>
+                    <input type="number" id="modalCostoNeto" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Precio Venta *</label>
+                    <input type="number" id="modalPrecioVenta" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select id="modalEstado">
+                        <option value="Consulta">Consulta</option>
+                        <option value="Reservado">Reservado</option>
+                        <option value="Seña">Seña</option>
+                        <option value="Parcial">Parcial</option>
+                        <option value="Pagado">Pagado</option>
+                        <option value="Viajado">Viajado</option>
+                        <option value="Cancelado">Cancelado</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Margen (calculado)</label>
+                    <input type="number" id="modalMargen" step="0.01" readonly>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Registro de Pagos</h3>
+                <div class="pagos-grid">
+                    <div class="form-group">
+                        <label>Pago 1 - Monto</label>
+                        <input type="number" id="modalPago1Monto" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Pago 1 - Fecha</label>
+                        <input type="date" id="modalPago1Fecha">
+                    </div>
+                    <div class="form-group">
+                        <label>Pago 2 - Monto</label>
+                        <input type="number" id="modalPago2Monto" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Pago 2 - Fecha</label>
+                        <input type="date" id="modalPago2Fecha">
+                    </div>
+                    <div class="form-group">
+                        <label>Pago 3 - Monto</label>
+                        <input type="number" id="modalPago3Monto" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Pago 3 - Fecha</label>
+                        <input type="date" id="modalPago3Fecha">
+                    </div>
+                </div>
+                <div class="info-row">
+                    <strong>Total pagado:</strong>
+                    <strong id="totalPagadoInfo">$0</strong>
+                </div>
+                <div class="info-row">
+                    <strong>Saldo:</strong>
+                    <strong id="saldoInfo">$0</strong>
+                </div>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 25px;">
+                <button onclick="guardarReserva()" style="flex: 1;">Guardar</button>
+                <button class="secondary" onclick="cerrarModal()" style="flex: 1;">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="alertBox" class="alert"></div>
+    
+    <script>
+        const SUPABASE_URL = 'https://kgpfkkotcqciiyzdvovq.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_Wv2H8mDO8V7nZJ4udoH4GA_zARNpjGH';
+        
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        const n = v => Number(v) || 0;
+        const fmt = v => '$' + n(v).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        let reservaActual = null;
+        let iniciado = false;
+        let reservas = [];
+        
+        async function inicializar() {
+            document.getElementById('login').style.display = 'none';
+            if (iniciado) { await cargarReservas(); return; }
+            iniciado = true;
+            await cargarReservas();
+            configurarRealtimeListener();
+            configurarCalculos();
+        }
+        
+        async function cargarReservas() {
+            try {
+                const { data, error } = await db
+                    .from('reservas')
+                    .select('*')
+                    .order('id', { ascending: false });
+                
+                if (error) throw error;
+                
+                reservas = data || [];
+                actualizarVista();
+            } catch (err) {
+                console.error('Error cargando reservas:', err);
+                mostrarAlerta('Error al cargar datos: ' + (err.message || err), 'danger');
+            }
+        }
+        
+        function configurarRealtimeListener() {
+            db
+                .channel('reservas')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
+                    cargarReservas();
+                })
+                .subscribe();
+        }
+        
+        function configurarCalculos() {
+            document.getElementById('modalCostoNeto').addEventListener('input', calcularMargen);
+            document.getElementById('modalPrecioVenta').addEventListener('input', calcularMargen);
+            ['modalPago1Monto', 'modalPago2Monto', 'modalPago3Monto'].forEach(id => {
+                document.getElementById(id).addEventListener('input', calcularTotalPagado);
+            });
+        }
+        
+        function calcularMargen() {
+            const costo = parseFloat(document.getElementById('modalCostoNeto').value) || 0;
+            const precio = parseFloat(document.getElementById('modalPrecioVenta').value) || 0;
+            const margen = precio - costo;
+            document.getElementById('modalMargen').value = margen.toFixed(2);
+            calcularTotalPagado();
+        }
+        
+        function calcularTotalPagado() {
+            const pago1 = parseFloat(document.getElementById('modalPago1Monto').value) || 0;
+            const pago2 = parseFloat(document.getElementById('modalPago2Monto').value) || 0;
+            const pago3 = parseFloat(document.getElementById('modalPago3Monto').value) || 0;
+            const precio = parseFloat(document.getElementById('modalPrecioVenta').value) || 0;
+            
+            const totalPagado = pago1 + pago2 + pago3;
+            const saldo = precio - totalPagado;
+            
+            document.getElementById('totalPagadoInfo').textContent = `$${totalPagado.toFixed(2)}`;
+            document.getElementById('saldoInfo').textContent = `$${saldo.toFixed(2)}`;
+        }
+        
+        function abrirModal(id = null) {
+            if (id) {
+                const reserva = reservas.find(r => r.id === id);
+                if (!reserva) return;
+                
+                reservaActual = reserva;
+                document.getElementById('modalTitle').textContent = `Editar Reserva - ${reserva.numerofile}`;
+                
+                document.getElementById('modalNumeroFile').value = reserva.numerofile;
+                document.getElementById('modalPasajero').value = reserva.pasajero;
+                document.getElementById('modalDestino').value = reserva.destino;
+                document.getElementById('modalFechaSalida').value = reserva.fechasalida;
+                document.getElementById('modalFechaRegreso').value = reserva.fecharegreso;
+                document.getElementById('modalCostoNeto').value = reserva.costoneto;
+                document.getElementById('modalPrecioVenta').value = reserva.precioventa;
+                document.getElementById('modalEstado').value = reserva.estado;
+                document.getElementById('modalPago1Monto').value = reserva.pago1monto || '';
+                document.getElementById('modalPago1Fecha').value = reserva.pago1fecha || '';
+                document.getElementById('modalPago2Monto').value = reserva.pago2monto || '';
+                document.getElementById('modalPago2Fecha').value = reserva.pago2fecha || '';
+                document.getElementById('modalPago3Monto').value = reserva.pago3monto || '';
+                document.getElementById('modalPago3Fecha').value = reserva.pago3fecha || '';
+                
+                calcularMargen();
+            } else {
+                reservaActual = null;
+                document.getElementById('modalTitle').textContent = 'Nueva Reserva';
+                ['modalNumeroFile', 'modalPasajero', 'modalDestino', 'modalFechaSalida', 'modalFechaRegreso', 'modalCostoNeto', 'modalPrecioVenta', 'modalEstado', 'modalMargen', 'modalPago1Monto', 'modalPago1Fecha', 'modalPago2Monto', 'modalPago2Fecha', 'modalPago3Monto', 'modalPago3Fecha'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+                document.getElementById('totalPagadoInfo').textContent = '$0';
+                document.getElementById('saldoInfo').textContent = '$0';
+            }
+            document.getElementById('modal').classList.add('active');
+        }
+        
+        function cerrarModal() {
+            document.getElementById('modal').classList.remove('active');
+            reservaActual = null;
+        }
+        
+        async function guardarReserva() {
+            const numeroFile = document.getElementById('modalNumeroFile').value;
+            const pasajero = document.getElementById('modalPasajero').value;
+            const destino = document.getElementById('modalDestino').value;
+            const fechaSalida = document.getElementById('modalFechaSalida').value;
+            const fechaRegreso = document.getElementById('modalFechaRegreso').value;
+            const costoNeto = parseFloat(document.getElementById('modalCostoNeto').value);
+            const precioVenta = parseFloat(document.getElementById('modalPrecioVenta').value);
+            const estado = document.getElementById('modalEstado').value;
+            const pago1Monto = parseFloat(document.getElementById('modalPago1Monto').value) || 0;
+            const pago1Fecha = document.getElementById('modalPago1Fecha').value || null;
+            const pago2Monto = parseFloat(document.getElementById('modalPago2Monto').value) || 0;
+            const pago2Fecha = document.getElementById('modalPago2Fecha').value || null;
+            const pago3Monto = parseFloat(document.getElementById('modalPago3Monto').value) || 0;
+            const pago3Fecha = document.getElementById('modalPago3Fecha').value || null;
+            
+            if (!numeroFile || !pasajero || !destino || !fechaSalida || !fechaRegreso || !costoNeto || !precioVenta) {
+                mostrarAlerta('Todos los campos son obligatorios', 'danger');
+                return;
+            }
+            
+            const totalPagado = pago1Monto + pago2Monto + pago3Monto;
+            const saldo = precioVenta - totalPagado;
+            const margen = precioVenta - costoNeto;
+            
+            const data = {
+                numerofile: numeroFile,
+                pasajero,
+                destino,
+                fechasalida: fechaSalida,
+                fecharegreso: fechaRegreso,
+                costoneto: costoNeto,
+                precioventa: precioVenta,
+                estado,
+                pago1monto: pago1Monto,
+                pago1fecha: pago1Fecha,
+                pago2monto: pago2Monto,
+                pago2fecha: pago2Fecha,
+                pago3monto: pago3Monto,
+                pago3fecha: pago3Fecha,
+                totalpagado: totalPagado,
+                saldo,
+                margen
+            };
+            
+            try {
+                if (reservaActual) {
+                    const { error } = await db
+                        .from('reservas')
+                        .update(data)
+                        .eq('id', reservaActual.id);
+                    
+                    if (error) throw error;
+                    mostrarAlerta('✓ Reserva actualizada', 'success');
+                } else {
+                    const { error } = await db
+                        .from('reservas')
+                        .insert([data]);
+                    
+                    if (error) throw error;
+                    mostrarAlerta('✓ Reserva guardada', 'success');
+                }
+                
+                cerrarModal();
+            } catch (err) {
+                console.error('Error guardando:', err);
+                mostrarAlerta('Error al guardar: ' + (err.message || err), 'danger');
+            }
+        }
+        
+        async function eliminarReserva(id) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta reserva?')) {
+                try {
+                    const { error } = await db
+                        .from('reservas')
+                        .delete()
+                        .eq('id', id);
+                    
+                    if (error) throw error;
+                    mostrarAlerta('✓ Reserva eliminada', 'success');
+                } catch (err) {
+                    mostrarAlerta('Error al eliminar', 'danger');
+                }
+            }
+        }
+        
+        function actualizarVista() {
+            actualizarTablaReservas();
+            actualizarEstadisticas();
+        }
+        
+        function actualizarTablaReservas() {
+            let filtradas = reservas;
+            const filtroP = document.getElementById('filtroP').value.toLowerCase();
+            const filtroEstado = document.getElementById('filtroEstado').value;
+            
+            if (filtroP) {
+                filtradas = filtradas.filter(r => 
+                    (r.numerofile || '').toLowerCase().includes(filtroP) ||
+                    (r.pasajero || '').toLowerCase().includes(filtroP) ||
+                    (r.destino || '').toLowerCase().includes(filtroP)
+                );
+            }
+            
+            if (filtroEstado) {
+                filtradas = filtradas.filter(r => r.estado === filtroEstado);
+            }
+            
+            const tbody = document.getElementById('tbodyReservas');
+            
+            if (filtradas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="12" class="empty">No hay reservas para mostrar</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = filtradas.map(r => `
+                <tr>
+                    <td><strong>${esc(r.numerofile)}</strong></td>
+                    <td>${esc(r.pasajero)}</td>
+                    <td>${esc(r.destino)}</td>
+                    <td>${esc(r.fechasalida)}</td>
+                    <td>${esc(r.fecharegreso)}</td>
+                    <td class="num">${fmt(r.costoneto)}</td>
+                    <td class="num">${fmt(r.precioventa)}</td>
+                    <td class="num pos">${fmt(r.margen)}</td>
+                    <td><span class="badge b-${esc((r.estado || '').toLowerCase())}">${esc(r.estado)}</span></td>
+                    <td class="num pos">${fmt(r.totalpagado)}</td>
+                    <td class="num ${n(r.saldo) > 0 ? 'neg' : 'pos'}">${fmt(r.saldo)}</td>
+                    <td class="rowbtns">
+                        <button class="mini" onclick="abrirModal(${Number(r.id)})">Editar</button>
+                        <button class="mini danger" onclick="eliminarReserva(${Number(r.id)})">✕</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function actualizarEstadisticas() {
+            const activas = reservas.filter(r => !['Viajado', 'Cancelado'].includes(r.estado)).length;
+            const porCobrar = reservas.filter(r => r.estado !== 'Cancelado').reduce((sum, r) => sum + n(r.saldo), 0);
+            const ganancia = reservas.filter(r => r.estado !== 'Cancelado').reduce((sum, r) => sum + n(r.margen), 0);
+            
+            const hoy = new Date();
+            const hace30 = new Date(hoy.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const proximas = reservas.filter(r => {
+                const fecha = new Date(r.fechasalida);
+                return fecha >= hoy && fecha <= hace30;
+            }).length;
+            
+            document.getElementById('estatReservas').textContent = activas;
+            document.getElementById('estatPorCobrar').textContent = fmt(porCobrar);
+            document.getElementById('estatGanancia').textContent = fmt(ganancia);
+            document.getElementById('estatProximas').textContent = proximas;
+        }
+        
+        function exportarJSON() {
+            const data = JSON.stringify(reservas, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reservas_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            mostrarAlerta('✓ JSON exportado', 'success');
+        }
+        
+        function descargarCSV() {
+            let csv = 'File,Pasajero,Destino,Salida,Regreso,Costo Neto,Precio Venta,Margen,Estado,Total Pagado,Saldo,Pago 1,Fecha Pago 1,Pago 2,Fecha Pago 2,Pago 3,Fecha Pago 3\n';
+            reservas.forEach(r => {
+                csv += `"${r.numerofile}","${r.pasajero}","${r.destino}",${r.fechasalida},${r.fecharegreso},${r.costoneto},${r.precioventa},${r.margen},${r.estado},${r.totalpagado},${r.saldo},${r.pago1monto || ''},${r.pago1fecha || ''},${r.pago2monto || ''},${r.pago2fecha || ''},${r.pago3monto || ''},${r.pago3fecha || ''}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reservas_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            mostrarAlerta('✓ CSV descargado', 'success');
+        }
+        
+        function mostrarAlerta(mensaje, tipo) {
+            const alert = document.getElementById('alertBox');
+            alert.textContent = mensaje;
+            alert.className = `alert show alert-${tipo}`;
+            setTimeout(() => alert.classList.remove('show'), 3000);
+        }
+        
+        document.getElementById('filtroP').addEventListener('input', actualizarVista);
+        document.getElementById('filtroEstado').addEventListener('change', actualizarVista);
+        
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') cerrarModal();
+        });
+        
+        async function ingresar() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPass').value;
+            const errBox = document.getElementById('loginError');
+            errBox.textContent = '';
+            if (!email || !password) { errBox.textContent = 'Completá email y contraseña'; return; }
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true; btn.textContent = 'Ingresando...';
+            const { error } = await db.auth.signInWithPassword({ email, password });
+            btn.disabled = false; btn.textContent = 'Ingresar';
+            if (error) { errBox.textContent = 'Email o contraseña incorrectos'; return; }
+            inicializar();
+        }
+
+        async function salir() {
+            await db.auth.signOut();
+            location.reload();
+        }
+
+        document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') ingresar(); });
+
+        db.auth.getSession().then(({ data }) => {
+            if (data.session) inicializar();
+        });
+    </script>
+</body>
+</html>
